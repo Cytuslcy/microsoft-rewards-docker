@@ -1,0 +1,44 @@
+name: Build Microsoft-Rewards V4-china
+
+on:
+  schedule:
+    # 每周一北京时间凌晨 4:00 自动拉取上游最新代码构建
+    - cron: '0 20 * * 0'
+  workflow_dispatch: # 支持随时手动点按钮触发构建
+
+jobs:
+  build-and-push:
+    runs-on: ubuntu-latest
+    permissions:
+      contents: read
+      packages: write
+
+    steps:
+      - name: 拉取原作者 V4-china 最新源码
+        uses: actions/checkout@v4
+        with:
+          repository: chiihero/Microsoft-Rewards-Script
+          ref: V4-china
+
+      - name: 转换用户名为小写（Docker 镜像名要求）
+        id: vars
+        run: echo "owner=$(echo '${{ github.repository_owner }}' | tr '[:upper:]' '[:lower:]')" >> "$GITHUB_OUTPUT"
+
+      - name: 登录 GitHub Container Registry
+        uses: docker/login-action@v3
+        with:
+          registry: ghcr.io
+          username: ${{ github.actor }}
+          password: ${{ secrets.GITHUB_TOKEN }}
+
+      - name: 配置 Docker Buildx
+        uses: docker/setup-buildx-action@v3
+
+      - name: 构建并推送镜像
+        uses: docker/build-push-action@v6
+        with:
+          context: .
+          push: true
+          tags: ghcr.io/${{ steps.vars.outputs.owner }}/microsoft-rewards-script:china
+          cache-from: type=gha
+          cache-to: type=gha,mode=max
